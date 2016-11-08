@@ -10,7 +10,7 @@ import java.util.Map;
 
 public final class Value {
 
-    public Object get(Object object,String name) {
+    public static Object get(Object object,String name) {
 
         Object v = null;
 
@@ -58,7 +58,7 @@ public final class Value {
         return v;
     }
 
-    public void set(Object object,String name,Object value) {
+    public static void set(Object object,String name,Object value) {
 
         if(object != null) {
 
@@ -106,7 +106,7 @@ public final class Value {
 
     }
 
-    public Object get(Object object, String[] keys) {
+    public static Object get(Object object, String[] keys) {
 
         Object v = object;
         int i = 0;
@@ -118,7 +118,7 @@ public final class Value {
         return v;
     }
 
-    public void set(Object object, String[] keys, Object value) {
+    public static void set(Object object, String[] keys, Object value) {
 
         Object v = object;
         int i = 0;

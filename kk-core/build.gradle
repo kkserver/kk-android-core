@@ -30,7 +30,7 @@ uploadArchives {
         mavenDeployer {
             pom.groupId = "kk"
             pom.artifactId = "core"
-            pom.version = "0.0.2"
+            pom.version = "0.0.3"
             repository(url: RELEASE_REPOSITORY_URL) {
 
             }
