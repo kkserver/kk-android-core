@@ -21,19 +21,61 @@ public final class Value {
             }
             else if(object instanceof List) {
 
-                int i = Integer.valueOf(name);
+                if("@length".equals(name)) {
+                    v =  ((List<?>) object).size();
+                }
+                else if("@first".equals(name)) {
+                    if(((List<?>) object).size()>0) {
+                        v = ((List<?>) object).get(0);
+                    }
+                    else {
+                        v = null;
+                    }
+                }
+                else if("@last".equals(name)) {
+                    if(((List<?>) object).size()>0) {
+                        v = ((List<?>) object).get(((List<?>) object).size() - 1);
+                    }
+                    else {
+                        v = null;
+                    }
+                }
+                else {
+                    int i = Integer.valueOf(name);
 
-                if(i >=0 && i < ((List<?>) object).size()) {
-                    v = ((List<?>) object).get(i);
+                    if (i >= 0 && i < ((List<?>) object).size()) {
+                        v = ((List<?>) object).get(i);
+                    }
                 }
             }
             else if(object.getClass().isArray()) {
 
                 int size = Array.getLength(object);
-                int i = Integer.valueOf(name);
 
-                if(i >= 0 && i < size) {
-                    v = Array.get(object,i);
+                if("@length".equals(name)) {
+                    v =  size;
+                }
+                else if("@first".equals(name)) {
+                    if(size>0) {
+                        v = Array.get(object, 0);
+                    }
+                    else {
+                        v = null;
+                    }
+                }
+                else if("@last".equals(name)) {
+                    if(size>0) {
+                        v = Array.get(object, size - 1);
+                    }
+                    else {
+                        v = null;
+                    }
+                }
+                else {
+                    int i = Integer.valueOf(name);
+                    if (i >= 0 && i < size) {
+                        v = Array.get(object, i);
+                    }
                 }
             }
             else if(object instanceof IGetter){
