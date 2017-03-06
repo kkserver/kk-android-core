@@ -1,13 +1,20 @@
 package cn.kkserver.core;
 
 import java.lang.reflect.Array;
+import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 
 /**
  * Created by zhanghailong on 2016/11/8.
  */
 
+@SuppressWarnings("unchecked")
 public final class Value {
 
     public static Object get(Object object,String name) {
@@ -82,16 +89,27 @@ public final class Value {
                 v = ((IGetter) object).get(name);
             }
             else {
-                try {
-                    java.lang.reflect.Field fd = object.getClass().getField(name);
-                    v = fd.get(object);
-                } catch (Throwable e) {
+
+                Class<?> clazz = object.getClass();
+
+                while(clazz != Object.class) {
+
                     try {
-                        java.lang.reflect.Method md = object.getClass().getMethod(name);
-                        v = md.invoke(object);
+                        java.lang.reflect.Field fd = object.getClass().getField(name);
+                        v = fd.get(object);
+                        break;
+                    } catch (Throwable e) {
+                        try {
+                            java.lang.reflect.Method md = object.getClass().getMethod(name);
+                            v = md.invoke(object);
+                            break;
+                        }
+                        catch (Throwable ee) {}
                     }
-                    catch (Throwable ee) {}
+
+                    clazz = clazz.getSuperclass();
                 }
+
             }
 
         }
@@ -136,13 +154,117 @@ public final class Value {
                 ((ISetter) object).set(name,value);
             }
             else {
-                try {
-                    java.lang.reflect.Field fd = object.getClass().getField(name);
-                    fd.set(object,value);
-                } catch (Throwable e) {
+
+                Class<?> clazz = object.getClass();
+
+                while(clazz != Object.class) {
+
+                    try {
+                        java.lang.reflect.Field fd = object.getClass().getField(name);
+                        set(object,fd,value);
+                        break;
+                    } catch (Throwable e) {
+                    }
+
+                    clazz = clazz.getSuperclass();
                 }
+
             }
 
+        }
+
+    }
+
+    public static <T extends Object> T convert(Object value, Class<T> type)  {
+
+        if(value == null) {
+            return null;
+        }
+
+        if(type.isAssignableFrom(value.getClass())) {
+            return (T) value;
+        }
+
+        if(type == int.class || type == Integer.class || type == short.class || type == Short.class) {
+            return (T) (Integer) intValue(value,0);
+        }
+
+        if(type == long.class || type == Long.class) {
+            return (T) (Long) longValue(value,0);
+        }
+
+        if(type == float.class || type == Float.class) {
+            return (T) (Float) floatValue(value,0f);
+        }
+
+        if(type == double.class || type == Double.class) {
+            return (T) (Double) doubleValue(value,0d);
+        }
+
+        if(type == boolean.class || type == Boolean.class) {
+            return (T) (Boolean) booleanValue(value,false);
+        }
+
+        if(type == String.class) {
+            return (T) stringValue(value,null);
+        }
+
+        try {
+
+            T v = type.newInstance();
+
+            Class<?> clazz = type;
+            Set<String> keys = new TreeSet<String>();
+            while(clazz != Objects.class) {
+
+                Field[] fds = clazz.getFields();
+
+                for(Field fd : fds) {
+
+                    if(! keys.contains(fd.getName())) {
+                        set(v,fd,get(value,fd.getName()));
+                        keys.add(fd.getName());
+                    }
+
+                }
+                clazz = clazz.getSuperclass();
+            }
+
+            return v;
+
+        } catch (InstantiationException e) {
+        } catch (IllegalAccessException e) {
+        }
+
+        return null;
+    }
+
+    public static void set(Object object,Field fd, Object value) {
+
+        if(fd.getType().isArray()) {
+
+            final Class<?> type = fd.getType().getComponentType();
+
+            final List<Object> vs = new ArrayList<Object>();
+
+            each(value, new IEacher() {
+                @Override
+                public boolean each(Object key, Object value) {
+                    Object v = convert(value,type);
+                    vs.add(v);
+                    return true;
+                }
+            });
+            try {
+                fd.set(object,vs.toArray((Object[])Array.newInstance(fd.getType().getComponentType(),vs.size())));
+            } catch (IllegalAccessException e) {
+            }
+        } else {
+            Object v = convert(value,fd.getType());
+            try {
+                fd.set(object,v);
+            } catch (IllegalAccessException e) {
+            }
         }
 
     }
@@ -166,12 +288,86 @@ public final class Value {
 
         while(v != null && keys != null && i < keys.length) {
 
+            String key = keys[i];
+
             if(i + 1 == keys.length){
-                set(v,keys[i],value);
+                set(v,key,value);
                 break;
             }
 
-            v = get(v,keys[i++]);
+            Object vv = get(v,key);
+
+            if(vv == null) {
+                set(v,key,new TreeMap<String,Object>());
+                v = get(v,key);
+            } else {
+                v = vv;
+            }
+
+            i ++;
+        }
+
+    }
+
+    public static void each(Object object,IEacher eacher) {
+
+        if(object != null) {
+
+            if(object instanceof Map) {
+                for(Object key : ((Map) object).keySet()) {
+                    if(eacher.each(key,((Map) object).get(key)) == false) {
+                        break;
+                    }
+                }
+            }
+            else if(object instanceof List) {
+                int size = ((List) object).size();
+                for(int i=0;i<size;i++) {
+                    if(eacher.each(i,((List) object).get(i)) == false) {
+                        break;
+                    }
+                }
+            }
+            else if(object.getClass().isArray()) {
+                int size = Array.getLength(object);
+                for(int i=0;i<size;i++) {
+                    if(eacher.each(i,Array.get(object,i)) == false) {
+                        break;
+                    }
+                }
+            }
+            else if(object instanceof IKeys) {
+                for(String key : ((IKeys) object).keys()) {
+                    if(eacher.each(key,Value.get(object,key)) == false) {
+                        break;
+                    }
+                }
+            }
+            else {
+                Class<?> clazz = object.getClass();
+                Set<String> keys = new TreeSet<String>();
+                while(clazz != Objects.class) {
+
+                    Field[] fds = clazz.getFields();
+
+                    for(Field fd : fds) {
+
+                        if(! keys.contains(fd.getName())) {
+
+                            try {
+                                if(eacher.each(fd.getName(),fd.get(object)) == false) {
+                                    break;
+                                }
+                            } catch (IllegalAccessException e) {
+                            }
+
+                            keys.add(fd.getName());
+                        }
+
+                    }
+                    clazz = clazz.getSuperclass();
+                }
+            }
         }
 
     }
@@ -262,6 +458,26 @@ public final class Value {
             return defaultValue;
         }
 
+        if(v.getClass() == int.class) {
+            return (int) v;
+        }
+
+        if(v.getClass() == long.class) {
+            return (int)(long) v;
+        }
+
+        if(v.getClass() == short.class) {
+            return (int)(short) v;
+        }
+
+        if(v.getClass() == float.class) {
+            return (int) (float) v ;
+        }
+
+        if(v.getClass() == double.class) {
+            return (int) (double) v ;
+        }
+
         if(v instanceof Integer) {
             return (Integer) v;
         }
@@ -284,6 +500,26 @@ public final class Value {
 
         if(v == null) {
             return defaultValue;
+        }
+
+        if(v.getClass() == int.class) {
+            return (long)(int) v;
+        }
+
+        if(v.getClass() == long.class) {
+            return (long) v;
+        }
+
+        if(v.getClass() == short.class) {
+            return (long)(short) v;
+        }
+
+        if(v.getClass() == float.class) {
+            return (long) (float) v ;
+        }
+
+        if(v.getClass() == double.class) {
+            return (long) (double) v ;
         }
 
         if(v instanceof Long) {
@@ -310,6 +546,30 @@ public final class Value {
             return defaultValue;
         }
 
+        if(v.getClass() == boolean.class) {
+            return (boolean) v;
+        }
+
+        if(v.getClass() == int.class) {
+            return (int) v != 0;
+        }
+
+        if(v.getClass() == long.class) {
+            return (long) v != 0;
+        }
+
+        if(v.getClass() == short.class) {
+            return (short) v != 0;
+        }
+
+        if(v.getClass() == float.class) {
+            return (float) v != 0;
+        }
+
+        if(v.getClass() == double.class) {
+            return (double) v != 0;
+        }
+
         if(v instanceof Boolean) {
             return (Boolean) v;
         }
@@ -325,6 +585,26 @@ public final class Value {
 
         if(v == null) {
             return defaultValue;
+        }
+
+        if(v.getClass() == int.class) {
+            return (float) (int) v;
+        }
+
+        if(v.getClass() == long.class) {
+            return (float) (long) v;
+        }
+
+        if(v.getClass() == short.class) {
+            return (float) (short) v;
+        }
+
+        if(v.getClass() == float.class) {
+            return (float) v;
+        }
+
+        if(v.getClass() == double.class) {
+            return (float) (double) v;
         }
 
         if(v instanceof Float) {
@@ -350,6 +630,27 @@ public final class Value {
         if(v == null) {
             return defaultValue;
         }
+
+        if(v.getClass() == int.class) {
+            return (double) (int) v;
+        }
+
+        if(v.getClass() == long.class) {
+            return (double) (long) v;
+        }
+
+        if(v.getClass() == short.class) {
+            return (double) (short) v;
+        }
+
+        if(v.getClass() == float.class) {
+            return (double) (float) v;
+        }
+
+        if(v.getClass() == double.class) {
+            return (double) v;
+        }
+
 
         if(v instanceof Double) {
             return (Double) v;
