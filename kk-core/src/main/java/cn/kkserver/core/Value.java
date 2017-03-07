@@ -2,6 +2,7 @@ package cn.kkserver.core;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -220,7 +221,8 @@ public final class Value {
 
                 for(Field fd : fds) {
 
-                    if(fd.isAccessible() && ! keys.contains(fd.getName())) {
+                    if(((Modifier.PUBLIC | Modifier.STATIC) & fd.getModifiers()) == Modifier.PUBLIC
+                            && ! keys.contains(fd.getName())) {
                         set(v,fd,get(value,fd.getName()));
                         keys.add(fd.getName());
                     }
