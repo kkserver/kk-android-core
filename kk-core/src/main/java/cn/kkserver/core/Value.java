@@ -5,7 +5,6 @@ import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -215,13 +214,13 @@ public final class Value {
 
             Class<?> clazz = type;
             Set<String> keys = new TreeSet<String>();
-            while(clazz != Objects.class) {
+            while(clazz != Object.class) {
 
                 Field[] fds = clazz.getFields();
 
                 for(Field fd : fds) {
 
-                    if(! keys.contains(fd.getName())) {
+                    if(fd.isAccessible() && ! keys.contains(fd.getName())) {
                         set(v,fd,get(value,fd.getName()));
                         keys.add(fd.getName());
                     }
@@ -346,7 +345,7 @@ public final class Value {
             else {
                 Class<?> clazz = object.getClass();
                 Set<String> keys = new TreeSet<String>();
-                while(clazz != Objects.class) {
+                while(clazz != Object.class) {
 
                     Field[] fds = clazz.getFields();
 
